@@ -1,1 +1,7 @@
-Automatic pipeline for analyzing NGS data. The pipeline uses fastq files as input and handles several programs and scripts, among them MOSAIK for alignment to reference.
+Automatic pipeline for analyzing NGS data. 
+The pipeline uses fastq files as input and handles several programs and scripts, among them MOSAIK for alignment to reference.
+
+V1.3
+-Uses SLURM dependencies
+-Cleaned up code
+-Added several parameters
