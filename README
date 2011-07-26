@@ -1,6 +1,13 @@
 Automatic pipeline for analyzing NGS data. 
 The pipeline uses fastq files as input and handles several programs and scripts, among them MOSAIK for alignment to reference.
 
+Dependencies:
+Programs:
+calculate_coverage_statistics.pl (Located @ paniccodewriter)
+Average_cov_chr.R
+Coverage_bed_pileup_genome.R 
+Coverage_hist_by_Chr.R
+
 V1.3
 -Uses SLURM dependencies
 -Cleaned up code
