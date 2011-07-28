@@ -1,7 +1,86 @@
 Automatic pipeline for analyzing NGS data. 
 The pipeline uses fastq files as input and handles several programs and scripts, among them MOSAIK for alignment to reference.
+####################################
+Program: wgs_mosaik_wf_master.1.3.pl
+####################################
+
+Performs QC of data, mapps, sorts, removes PCR duplicates, merges, calculates a coverage report and plots data using FASTQC, MOSAIK, and cutom scripts.
+1.	Only supported aligner so far is MOSAIK but it is easy to add your aligner of choice.
+2.	So far the pipeline only supports PE-reads.
+3.	Files must currently be named on format:
+	a.	x.y.lanez_k.fastq
+		i.	Ex: 	10-7050.20101008A_hiseq2000.lane8_1.fastq
+				10-7050.20101008A_hiseq2000.lane8_2.fastq
+In Directories
+1.	Your in directory data folder should contain a sample id subfolder which in turn contains a fastq subfolder with your .fastq files. Specify it with –id.
+	a.	Input directory supplied is the fastq directory
+		i.	Ex: located in private → Proj1/10-7050/fastq
+		ii.	Where Proj1 is the data folder and 10-7050 is the sample ID.
+2.	You will need a folder that contains all the custom script files required by the pipeline. Specify it with –ids.
+
+Out Directories
+1.	The pipeline script will create a data folder if the one specified does not already exist. It will put all the out files from programs there. Specify the output data dir with –odf. 
+2.	If possible each programme that is executed will get a separate folder under the data folder. That folder will contain a subdirectory called info. All the stderr and stdout information from the runs will be gathered there. 
+3.	You can also specify an output directory to put all the sbatch files. It will write all the master script sbatch files to the output dir. Specify it with –ods.
+4.	You will have to supply the pipeline with a reference dir. Specify it with –rd.
+
+References:
+
+1.	Reference directory must contain:
+	a.	The mosaik reference file named cancat.db (whole genome)
+	b.	The mosaik jump database named with the stub: concat_jdb_15
+		i.	concat_jdb_15_keys.jmp
+		ii.	concat_jdb_15_meta.jmp
+		iii.	concat_jdb_15_positions.jmp
+		c.	Exome bed-file:
+		i.	CCDS-hg19.bed or similar
+2.	Uppnex:
+	a.	The mosaik data reference
+
+Dependencies:
+Custom Programs:
+filter_fastq.pl (Located @ paniccodewriter)
+calculate_coverage_statistics.pl (Located @ paniccodewriter)
+Average_cov_chr.R
+Coverage_bed_pileup_genome.R 
+Coverage_hist_by_Chr.R
+
+Command Line
+-	-h: Flag can be supplied to check out all parameters and their explanation
+-	-s: Sampleid must be supplied in the same order as the input directory
+		o Ex: Input: -id Proj1/10-7050,Proj1/10-7052 → -s 10-7050,10-7052
+-	-pX: -p stands for program and then follows an akronym for the program.
+		o 0 means do not execute
+		o 1 means run execute
+	o The default is to run the longest chain i.e. all programs.
+-	Flags for –id, -ids, -odf, -ods and –rd should be submitted with the whole path i.e. /bubo/proj/bXXXXXXX/private (Uppmax)
 
 V1.3
 -Uses SLURM dependencies
 -Cleaned up code
--Added several parameters
+-Added several parameters (use -h to check them out)
+
+#########################################
+Program: wgs_mosaikMerge_wf_master.1.2.pl
+#########################################
+
+Use for merging sequencing sequencing lanes added at later timepoints to already existing data. 
+Uses the same structure and dependencies as wgs_mosaik_wf_master.1.3.pl.
+
+######################################
+Program: wgs_var_call_wf_master.1.3.pl
+######################################
+
+Performs variant calling (SNPs and small INDELS) using samtools (mpileup) and a cutom script. Annovar is used to filter variants and all info is presented as tab separated file across sampleids per chr.
+Uses the same structure as wgs_mosaik_wf_master.1.3.pl.
+
+References:
+- Reference for samtools mpileup. (Set with -STMPRef)
+- Reference databases for annovar filtering (Set with -rdav)
+
+Dependencies:
+Custom Programs:
+convert_bam_to_snps_indels_sa.pl (Located @ paniccodewriter)
+varcall_compare_vcf_MB.1.1.pl
+varcall_merge_annovar_master.1.0.pl
+varcall_merge_post_annovar_master.1.0.pl
