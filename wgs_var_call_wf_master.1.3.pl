@@ -56,7 +56,7 @@ wgs_var_call_wf_master.1.3.pl  -i [infile...n] -a [project ID] -s [sample ID...n
 
 =head3 I/O
 
-Input format ( infiles_aligned_sorted_(merged).dat )
+Input format ( infiles_aligned_sorted_(merged).bam )
 
 Output format:
 
