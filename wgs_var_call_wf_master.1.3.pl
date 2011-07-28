@@ -56,7 +56,7 @@ wgs_var_call_wf_master.1.3.pl  -i [infile...n] -a [project ID] -s [sample ID...n
 
 =head3 I/O
 
-Input format ( infiles_aligned_sorted_(merged).dat )
+Input format ( infiles_aligned_sorted_(merged).bam )
 
 Output format:
 
@@ -397,14 +397,14 @@ sub AnnovarFilter {
     
     for (my $chr=0;$chr<scalar(@chr);$chr++) { #For all chr	    
 	
-	print ANVARF "annovar/annotate_variation.pl -geneanno -buildver hg19 -dbtype refgene ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n";
-	print ANVARF "annovar/annotate_variation.pl -regionanno -dbtype mce46way -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in conserved regions	
-	print ANVARF "annovar/annotate_variation.pl -regionanno -dbtype segdup -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #Finding SNVs in segmental duplications   
-	print ANVARF "annovar/annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_1000g_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in 1000g data 
-	print ANVARF "annovar/annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_dbsnp_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in dbsnp131 data  
-	print ANVARF "annovar/annotate_variation.pl -filter -buildver hg19 -dbtype generic -genericdbfile hg19_cg46.txt --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in complete genomics data
-	print ANVARF "annovar/annotate_variation.pl -filter -buildver hg19 -dbtype avsift ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Finding benign SNVS
-	print ANVARF "annovar/annotate_variation.pl -filter -buildver hg19 -dbtype ljb_pp2 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Removing benign SNVS using polyphen 2
+	print ANVARF "annotate_variation.pl -geneanno -buildver hg19 -dbtype refgene ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n";
+	print ANVARF "annotate_variation.pl -regionanno -dbtype mce46way -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in conserved regions	
+	print ANVARF "annotate_variation.pl -regionanno -dbtype segdup -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #Finding SNVs in segmental duplications   
+	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_1000g_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in 1000g data 
+	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_dbsnp_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in dbsnp131 data  
+	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype generic -genericdbfile hg19_cg46.txt --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in complete genomics data
+	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype avsift ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Finding benign SNVS
+	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype ljb_pp2 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Removing benign SNVS using polyphen 2
 	print ANVARF "wait", "\n\n";    
     }
         
