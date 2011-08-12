@@ -1124,7 +1124,7 @@ sub Cal_cov_statFilter {
     return;
 }
 
-sub MosaikTextFilter { 
+sub MosaikTextFilter { #DE: basically only format conversion: mosaik.dat->.bam
     
 #Generates sbatch scripts and runs MosaikText on files generated from MosaikSort or MosaikMerge (Filter_fastq.pl)
     

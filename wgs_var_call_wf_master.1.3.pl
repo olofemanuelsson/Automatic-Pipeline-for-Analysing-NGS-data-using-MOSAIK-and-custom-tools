@@ -88,6 +88,10 @@ Output format:
 
 4. varcall_merge_post_annovar_master.1.0.pl
 
+=head5 Releases
+
+DE: Added error check if variation file exists to fcn AnnovarFilter and VarcallMergePostAnnovar.
+
 =cut
 
 use Pod::Usage;
@@ -122,13 +126,17 @@ BEGIN {
                -annovar_dbsnp_ver/--Flag for setting the version of dbsnp in annovar (defaults to snp131)
                -annovar_1000g_ver/--Flag for setting the version of 1000g in annovar (defaults to 1000g2010nov_all)
                -annovar_maf_thold/--Flag for setting the maf_threshold in annovar (dbsnp, 1000g etc.)
+               -wgs/--Flag for setting if whole genome seq or not (default: 1)
+               -maxDepthFactor/--Factor for calculating the maximal depth for mpileup varcall. maxDepth = Average coverage * maxDepthFactor.
 	   };
     
 }
 
 my ($aid,$em, $ids, $rd, $rdav, $odf, $ods, $fnend, $annovar_dbsnp_ver, $annovar_1000g_ver, $annovar_maf_thold, $STMPRef, $filename, $filename2, $fnt, $fnt2, $help) = (0,0,0,0, "/bubo/nobackup/uppnex/annotations/annovar/humandb", "data", "wgs_wf_scripts", ".sh", "snp131", "1000g2010nov_all", 0, "Homo_sapiens.GRCh37.57.dna.concat.fa"); #Arguments for project
 my ($pSTSI, $pSTV, $pSTMP, $pCBSI,$pVCOMP, $pVCMA, $pANVAR, $pVMERGE) = (1,1,1,1,1,1,1,1); #Default arguments for running programs
-my (@infn,@sid, @chr, @avcov, @jobID);
+my $wgs = 1;
+my $varcall_maxdepth_avgcovfactor = 3;
+my (@infn,@sid, @chr, @jobID);
 my (%infiles,%avcovfn, %dirname);
 
 GetOptions('i|infile:s'  => \@infn, #Comma separeted list
@@ -152,6 +160,8 @@ GetOptions('i|infile:s'  => \@infn, #Comma separeted list
 	   'annovar_dbsnp_ver|annovar_dbsnp_version:n' => \$annovar_dbsnp_ver,
 	   'annovar_1000g_ver|annovar__1000g_version:n' => \$annovar_1000g_ver,
 	   'annovar_maf_thold|annovar_maf_threshold:n' => \$annovar_maf_thold,
+	   'wgs|wholegenomeseq:n' => \$wgs,
+	   'maxDepthFactor|mpileupMaxDepth' => \$varcall_maxdepth_avgcovfactor,
 	   'h|help' => \$help,
 	   );
 
@@ -224,7 +234,7 @@ if ($pSTSI eq 1) {
     print STDERR "Sbatch script samtools sort & index data files will be written to: ", $odf,"/sampleid/samtools/", "\n";
 }
 
-if ($pSTV eq 1) {
+if ($pSTV eq 1) { #DE: seems to just print per chromosome output, ie, from one whole genome bam file per sample, to chr bam files.
 
     for (my $sampleid=0;$sampleid<scalar(@sid);$sampleid++) {  
     
@@ -236,7 +246,7 @@ if ($pSTV eq 1) {
     print STDERR "Sbatch script samtools view data files will be written to: ", $odf,"/sampleid/samtools", "\n";
 }
 
-if ($pSTMP eq 1 && $pSTV) { #Run samtools mpileup only if samtools view has been run
+if ($pSTMP eq 1 && $pSTV eq 1) { #Run samtools mpileup only if samtools view has been run
 
     for (my $sampleid=0;$sampleid<scalar(@sid);$sampleid++) {  
     
@@ -340,17 +350,14 @@ sub VarcallMergePostAnnovar {
     
     print VMERGE "perl $ids/varcall_merge_post_annovar_master.1.0.pl -i ";
     
-    for (my $chr=0;$chr<scalar(@chr);$chr++) { #For all chr
-	
-	
-	if ($chr eq scalar(@chr)-1) {
-	    
-	    print VMERGE '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ";
-	}
-	else {
-	    print VMERGE '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt,";	
-	    
-	}
+    for (my $jchr=0; $jchr < scalar(@chr); $jchr++) { #For all chr
+		
+      if ($jchr eq scalar(@chr)-1) { #last one (no ending comma)	    
+	print VMERGE '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ";
+      } 
+      else {
+	print VMERGE '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt,";	
+      }	    
     }
     print VMERGE "-nos ", scalar(@sid), " -o ", '${outSampleDir}', "/annovar_master_all_subject_variants.txt", "\n\n";
 #scalar(@sid) required for correct number of columns
@@ -395,17 +402,17 @@ sub AnnovarFilter {
     print ANVARF 'inSamplePrefix="',"/varcall_comp.vcf.annovar_master_", '"', "\n";    
     print ANVARF 'outSamplePrefix="',"/varcall_comp.vcf.annovar_master_", '"', "\n";   
     
-    for (my $chr=0;$chr<scalar(@chr);$chr++) { #For all chr	    
+    for (my $jchr=0; $jchr < scalar(@chr); $jchr++) { #For all chr	    
 	
-	print ANVARF "annotate_variation.pl -geneanno -buildver hg19 -dbtype refgene ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n";
-	print ANVARF "annotate_variation.pl -regionanno -dbtype mce46way -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in conserved regions	
-	print ANVARF "annotate_variation.pl -regionanno -dbtype segdup -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #Finding SNVs in segmental duplications   
-	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_1000g_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in 1000g data 
-	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_dbsnp_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; # SNVs in dbsnp131 data  
-	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype generic -genericdbfile hg19_cg46.txt --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inRefDir} &', "\n\n"; #SNVs in complete genomics data
-	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype avsift ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Finding benign SNVS
-	print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype ljb_pp2 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$chr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Removing benign SNVS using polyphen 2
-	print ANVARF "wait", "\n\n";    
+      print ANVARF "annotate_variation.pl -geneanno -buildver hg19 -dbtype refgene ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n";
+      print ANVARF "annotate_variation.pl -regionanno -dbtype mce46way -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n"; #SNVs in conserved regions	
+      print ANVARF "annotate_variation.pl -regionanno -dbtype segdup -buildver hg19 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n"; #Finding SNVs in segmental duplications   
+      print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_1000g_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n"; # SNVs in 1000g data 
+      print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype $annovar_dbsnp_ver --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n"; # SNVs in dbsnp131 data  
+      print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype generic -genericdbfile hg19_cg46.txt --maf_threshold $annovar_maf_thold ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inRefDir} &', "\n\n"; #SNVs in complete genomics data
+      print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype avsift --sift_threshold 0 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Finding benign SNVS
+      print ANVARF "annotate_variation.pl -filter -buildver hg19 -dbtype ljb_pp2 ", '${inSampleDir}', '${inSamplePrefix}', "$chr[$jchr].txt ", '${inSampleEnd} ${inRefDir} &', "\n\n"; #Removing benign SNVS using polyphen 2
+      print ANVARF "wait", "\n\n";    
     }
         
     if ($pVMERGE eq 1) {  #varcall_merge_post_annovar_master.1.0.pl after annovar analysis
@@ -611,14 +618,14 @@ sub ConvertBamMB {
 sub SamtoolsMP { 
     
 #Mpileup
-#$_[0] = sampleid
+  my $sampleid = shift @_;
 
-    `mkdir -p $odf/$_[0]/samtools/info;`; #Creates the samtools folder and info data file directory
-    `mkdir -p $odf/$_[0]/samtools/var_call;`; #Creates the  samtools var_call folder    
-    `mkdir -p $ods/$_[0]/samtools;`; #Creates the samtools script folder
+    `mkdir -p $odf/$sampleid/samtools/info;`; #Creates the samtools folder and info data file directory
+    `mkdir -p $odf/$sampleid/samtools/var_call;`; #Creates the  samtools var_call folder    
+    `mkdir -p $ods/$sampleid/samtools;`; #Creates the samtools script folder
    
 
-    $filename = "$ods/$_[0]/samtools/samtools_mpileup_wf_$_[0].";
+    $filename = "$ods/$sampleid/samtools/samtools_mpileup_wf_$sampleid.";
     Checkfnexists($filename, $fnend);
 
     open (STMP, ">$filename") or die "Can't write to $filename: $!\n";
@@ -628,9 +635,9 @@ sub SamtoolsMP {
     print STMP "#SBATCH -p node -n 8", "\n";
     print STMP "#SBATCH -C thin", "\n";	
     print STMP "#SBATCH -t 10:00:00", "\n"; #10:00:00", "\n";
-    print STMP "#SBATCH -J STMP_", $_[0], "\n";
-    print STMP "#SBATCH -e $odf/$_[0]/samtools/info/samtools_mpileup_wf_$_[0].", $fnt ,".stderr.txt", "\n";
-    print STMP "#SBATCH -o $odf/$_[0]/samtools/info/samtools_mpileup_wf_$_[0].", $fnt ,".stdout.txt", "\n";
+    print STMP "#SBATCH -J STMP_", $sampleid, "\n";
+    print STMP "#SBATCH -e $odf/$sampleid/samtools/info/samtools_mpileup_wf_$sampleid.", $fnt ,".stderr.txt", "\n";
+    print STMP "#SBATCH -o $odf/$sampleid/samtools/info/samtools_mpileup_wf_$sampleid.", $fnt ,".stdout.txt", "\n";
     
     unless ($em eq 0) {
 	
@@ -645,10 +652,10 @@ sub SamtoolsMP {
     print STMP "#Reference Archive", "\n";
     print STMP 'referenceArchive="', "$rd/$STMPRef", '"', "\n\n"; 
     print STMP "#Samples", "\n";
-    print STMP 'inSampleDir="',"$odf/$_[0]/samtools", '"', "\n";
-    print STMP 'outSampleDir="', "$odf/$_[0]/samtools/var_call", '"', "\n\n";   
+    print STMP 'inSampleDir="',"$odf/$sampleid/samtools", '"', "\n";
+    print STMP 'outSampleDir="', "$odf/$sampleid/samtools/var_call", '"', "\n\n";   
     
-    my $tempinfile = $avcovfn{$_[0]};
+    my $tempinfile = $avcovfn{$sampleid};
     my $k=1;
     for (my $chr=0;$chr<scalar(@chr);$chr++) { #For all chr	    
 	
@@ -661,32 +668,57 @@ sub SamtoolsMP {
 	
     }
     
+
+    ####
+    #Filter on maximum depth
+    ####
+
     $k=1; #Resetting for new infile
     print STMP "wait", "\n\n";
     
     print STMP "#Samples", "\n";
-    print STMP 'inSampleDir="',"$odf/$_[0]/samtools/var_call", '"', "\n";
-    print STMP 'outSampleDir="', "$odf/$_[0]/samtools/var_call", '"', "\n\n";
+    print STMP 'inSampleDir="',"$odf/$sampleid/samtools/var_call", '"', "\n";
+    print STMP 'outSampleDir="', "$odf/$sampleid/samtools/var_call", '"', "\n\n";
     
-    $tempinfile = $avcovfn{$_[0]};
-    @avcov = `cut -f5 $odf/$_[0]/mosaik/mosaikMerge/coverageReport/$avcovfn{$_[0]}.bam.coverage_per_chromosome.txt`; #Collects average coverage of each chromosome for bcftools -D, should be 2x avg. cov.
-    shift @avcov; #Removes header from array 
+    $tempinfile = $avcovfn{$sampleid};
 
-    foreach my $value (@avcov) { $value = $value * 2; } #Multiply all entries by 2
 
-    for (my $chr=0;$chr<scalar(@chr);$chr++) { #For all chr	    
+    my @avcov;
+    if(!$wgs){ #exome
+
+#$odf/$sampleid/mosaik/info/cal_cov_stat.*.stdout.txt TODO: seem to be a counter on this filename so there could exist several ones. Ignore for now.
+
+#      my @bedavcov_line = `grep 'Average coverage in bed regions' /proj/b2011075/melanoma_exomseq/mosaik_pipe/outdata/$sampleid/mosaik/info/cal_cov_stat.*.stdout.txt`;
+      my @bedavcov_line = `grep 'Average coverage in bed regions' $odf/$sampleid/mosaik/info/cal_cov_stat.*.stdout.txt`;
+      my @cols = split(/\s+/, $bedavcov_line[0]);
+      my $bed_avcov = $cols[5];
+      
+      #Use the same coverage for every chromosome (ie, not unique as for WGS below).
+      @avcov = ($bed_avcov) x scalar(@chr);
+    }
+    else{ #Whole genome seq
+      
+      @avcov = `cut -f5 $odf/$sampleid/mosaik/mosaikMerge/coverageReport/$avcovfn{$sampleid}.bam.coverage_per_chromosome.txt`; #Collects average coverage of each chromosome for bcftools -D, should be 2x avg. cov.
+      shift @avcov; #Removes header from array 
+    }
+
+    #Multiply avgcov to get max allowed depth (see http://sourceforge.net/apps/mediawiki/samtools/index.php?title=SAM_protocol)
+    #At coverage: avg bed cov * 3, the fraction of pos covered (CCDS): 1.6%, 1.8%, 1.3%, 2.1%)    
+    @avcov = map {$_ * $varcall_maxdepth_avgcovfactor} @avcov;
+
+    #Write oneliner filter command for every chr
+    for (my $jchr=0; $jchr < scalar(@chr); $jchr++) {
 	
-	if ($chr eq $k*8) { #Using only 8 cores
+	if ($jchr eq $k*8) { #Using only 8 cores
 	    
 	    print STMP "wait", "\n\n";
 	    $k=$k+1;
 	}
-	chomp($avcov[$chr]);
-	print STMP "bcftools view ", '${inSampleDir}', "/$tempinfile","_sorted_", "$chr[$chr]", "_var.raw.bcf | vcfutils.pl varFilter -D$avcov[$chr] > ", '${outSampleDir}', "/$tempinfile","_sorted_", "$chr[$chr]", "_var.flt.vcf &", "\n\n";
-	
+	chomp($avcov[$jchr]);
+	print STMP "bcftools view ". '${inSampleDir}'. "/$tempinfile"."_sorted_". "$chr[$jchr]". "_var.raw.bcf | vcfutils.pl varFilter -D$avcov[$jchr] > ". '${outSampleDir}'. "/$tempinfile"."_sorted_". "$chr[$jchr]". "_var.flt.vcf &". "\n\n";	
     }
     $k=1; #Resetting for new infile
-    print STMP "wait", "\n\n";
+    print STMP "wait". "\n\n";
     close(STMP);   
     return;
 }

@@ -74,6 +74,7 @@ $arraypos = 7+$nos; #Chr,start,stop,Ref,Variant, Location and Gene/Na is always 
 my (%allVariants, %allVariants_chr, %allVariants_chr_unique, %allVariants_chr_sorted);
 my (@allVariants, @allVariants_unique, @allVariants_sorted);
 
+#Read annotations
 for (my $inputfiles=0;$inputfiles<scalar(@infn);$inputfiles++) {
     
      ReadVarCAnnoVMaster($infn[$inputfiles]);
@@ -93,6 +94,18 @@ for (my $inputfiles=0;$inputfiles<scalar(@infn);$inputfiles++) {
 
 SortAllVariants();
 WriteMasterAnnoV($of);
+
+#add site depth info among samples where the site was not called as a variant
+#AddNonVarSiteInfo($of, \@sample_indexedbamfiles, $ods, $aid, $em);
+
+sub AddNonVarSiteInfo{
+#NB: Prefix of bamfile needs to exactly match samplename (as printed in the master annotation txt file) and the samplename prefix directly appended by '_lanes'.
+
+#SEE: get.siteinfo.pl:
+#  perl get.siteinfo.pl -var /proj/b2011075/melanoma_exomseq/mosaik_pipe/outdata/run2/annovar_filter/annovar_master_all_subject_variants.txt -bam /proj/b2011075/melanoma_exomseq/mosaik_pipe/outdata/217_1/samtools/217_1_lanes_45_S_merged_sorted.bam -ods /proj/b2011075/melanoma_exomseq/mosaik_pipe/outscripts/run2/annovar_filter -a b2010035 -em daniel.edsgard@scilifelab.se
+
+  return;
+}
 
 sub SortAllVariants {
 #Creates an array of all position which are unique and in sorted ascending order
@@ -177,87 +190,101 @@ sub ReadAnnoAvsift {
 }
 
 sub ReadAnnocg46 {
-#Reads annovar.hg19_generic_dropped
-#$_[0] = filename
-#$_[1] = $arraypos
+#Reads annovar.hg19_generic_dropped (cg46)
+
+  my $db = 'cg46';
+
+  my $inputfileprefix = shift @_;
+  my $local_arraypos = shift @_;
+  my $inputfile = $inputfileprefix . '.hg19_generic_dropped';
     
-    open(ACR, "<$_[0].hg19_generic_dropped") or die "Can't open $_[0].hg19_generic_dropped:$!, \n";    
+    open(ACR, '<', $inputfile) or die "Can't open $inputfile:$!, \n";    
     
-    while (<ACR>) {
-        chomp $_;
+    while (defined(my $line = <ACR>)) {
+        chomp $line;
 	
-	if (m/^\s+$/) {		# Avoid blank lines
+	if ($line =~ m/^\s+$/) {		# Avoid blank lines
             next;
         }		
-	if (/(\S+)/) {
+	if ($line =~ m/(\S+)/) {
 	    
-	    my @temp = split("\t",$_);	    #Loads variant calls
-	    if ($allVariants{$temp[2]}{$temp[3]}{$temp[6]}) { #If present in complete genomics 46 genomes db add info
-		$allVariants{$temp[2]}{$temp[3]}{$temp[6]}[$_[1]] = "cg46";
-		#push(@{ $allVariants{$temp[2]}{$temp[3]}{$temp[6]} }, "cg46"); # Hash{chr}{pos}{variant}, all variants, adds COMPLETE GENOMICS 46 GENOMES presence
+	    my @cols = split("\t", $line);	    #Loads variant calls
+	    my ($maf, $chr, $start, $obsallele) = ($cols[1], $cols[2], $cols[3], $cols[6]);
+
+	    if ($allVariants{$chr}{$start}{$obsallele}) { #If present in complete genomics 46 genomes db add info
+		$allVariants{$chr}{$start}{$obsallele}[$local_arraypos] = $db . ';' . $maf;
+		#push(@{ $allVariants{$cols[2]}{$start}{$obsallele} }, "cg46"); # Hash{chr}{pos}{variant}, all variants, adds COMPLETE GENOMICS 46 GENOMES presence
 	    }
 	}
     } 	
     $arraypos++;
     close(ACR);
-    print STDERR "Finished Reading Infile $_[0].hg19_generic_dropped","\n";
+    print STDERR "Finished Reading Infile $inputfile","\n";
     return;
 }
 
 sub ReadAnnoDbsnp {
 #Reads annovar.hg19_snp131_dropped
-#$_[0] = filename
-#$_[1] = $arraypos
     
-    open(ACR, "<$_[0].hg19_snp131_dropped") or die "Can't open $_[0].hg19_snp131_dropped:$!, \n";    
+  my $inputfileprefix = shift @_;
+  my $local_arraypos = shift @_;
+  my $inputfile = $inputfileprefix . '.hg19_snp131_dropped';
+
+  open(ACR, '<', $inputfile) or die "Can't open $inputfile:$!, \n";    
     
-    while (<ACR>) {
-        chomp $_;
+    while (defined(my $line = <ACR>)) {
+        chomp $line;
 	
-	if (m/^\s+$/) {		# Avoid blank lines
+	if ($line =~ m/^\s+$/) {		# Avoid blank lines
             next;
         }		
-	if (/(\S+)/) {
+	if ($line =~ m/(\S+)/) {
 	    
-	    my @temp = split("\t",$_);	    #Loads variant calls
-	    if ($allVariants{$temp[2]}{$temp[3]}{$temp[6]}) { #If present in dbsnp add info
-		$allVariants{$temp[2]}{$temp[3]}{$temp[6]}[$_[1]] = $temp[0];
-		$allVariants{$temp[2]}{$temp[3]}{$temp[6]}[$_[1]+1] = $temp[1];
+	    my @cols = split("\t", $line);	    #Loads variant calls
+	    my ($dbver, $rs_id, $chr, $start, $obsallele) = ($cols[0], $cols[1], $cols[2], $cols[3], $cols[6]);
+
+	    if ($allVariants{$chr}{$start}{$obsallele}) { #If present in dbsnp add info
+		$allVariants{$chr}{$start}{$obsallele}[$local_arraypos] = $dbver;
+		$allVariants{$chr}{$start}{$obsallele}[$local_arraypos + 1] = $rs_id;
 		#push(@{ $allVariants{$temp[2]}{$temp[3]}{$temp[6]} }, $temp[0], $temp[1] ); # Hash{chr}{pos}{variant}, all variants, adds DBSNP presence and ID
 	    }
 	}
     } 	
-    $arraypos = $arraypos+2;
+    $arraypos = $arraypos + 2;
     close(ACR);
-    print STDERR "Finished Reading Infile $_[0].hg19_snp131_dropped","\n";
+    print STDERR "Finished Reading Infile $inputfile","\n";
     return;
 }
 
 sub ReadAnno1000g {
 #Reads annovar.hg19_ALL.sites.2010_11_dropped
-#$_[0] = filename
-#$_[1] = $arraypos
     
-    open(ACR, "<$_[0].hg19_ALL.sites.2010_11_dropped") or die "Can't open $_[0].hg19_ALL.sites.2010_11_dropped:$!, \n";    
+  my $inputfileprefix = shift @_;
+  my $local_arraypos = shift @_;
+  my $inputfile = $inputfileprefix . '.hg19_ALL.sites.2010_11_dropped';
+
+    open(ACR, '<', $inputfile) or die "Can't open $inputfile:$!, \n";    
     
-    while (<ACR>) {
-        chomp $_;
+    while (defined(my $line = <ACR>)) {
+        chomp $line;
 	
-	if (m/^\s+$/) {		# Avoid blank lines
+	if ($line =~ m/^\s+$/) {		# Avoid blank lines
             next;
         }		
-	if (/(\S+)/) {
+	if ($line =~ m/(\S+)/) {
 	    
-	    my @temp = split("\t",$_);	    #Loads variant calls
-	    if ($allVariants{$temp[2]}{$temp[3]}{$temp[6]}) { #If present in 1000g db add info
-		$allVariants{$temp[2]}{$temp[3]}{$temp[6]}[$_[1]] = $temp[0];
+	    my @cols = split("\t", $line);	    #Loads variant calls
+	    my ($dbver, $maf, $chr, $start, $obsallele) = ($cols[0], $cols[1], $cols[2], $cols[3], $cols[6]);
+
+	    if ($allVariants{$chr}{$start}{$obsallele}) { #If present in 1000g db add info
+		$allVariants{$chr}{$start}{$obsallele}[$local_arraypos] = $dbver . ';' . $maf;
 		#push(@{ $allVariants{$temp[2]}{$temp[3]}{$temp[6]} }, $temp[0]); # Hash{chr}{pos}{variant}, all variants, adds 1000G presence
 	    }
 	}
     } 	
     $arraypos++;
     close(ACR);
-    print STDERR "Finished Reading Infile $_[0].hg19_ALL.sites.2010_11_dropped","\n";
+    print STDERR "Finished Reading Infile $inputfile","\n";
     return;
 }
 
@@ -400,7 +427,7 @@ sub WriteMasterAnnoV {
     
     my $filename = shift;
     open (ANVAR, ">$filename") or die "Can't write to $filename: $!\n"; 
-    for (my $chrpos=0;$chrpos<scalar( @chr );$chrpos++) { #For all chr positions
+    for (my $chrpos=0; $chrpos<scalar( @chr ); $chrpos++) { #For all chr positions
 	
 	my $chr = $chr[$chrpos];
 	if ($allVariants{$chr}) {
@@ -413,7 +440,7 @@ sub WriteMasterAnnoV {
 		    
 		    print ANVAR "chr$chr","\t", $pos,"\t", $allVariants{$chr}{$pos}{$variant}[2], "\t", $allVariants{$chr}{$pos}{$variant}[3], "\t", $variant,"\t";   #$allVariants{$chr}{$pos}{$variant}[2] = stop position, #$allVariants{$chr}{$pos}{$variant}[3] = reference nucleotide
 		    #for (my $k=5;$k<scalar( @{$allVariants{$chr}{$pos}{$variant} } );$k++)  { #For all entries
-		    for (my $k=5;$k<scalar( $arraypos );$k++)  { #For all entries indepent if true or not
+		    for (my $k=5; $k < scalar( $arraypos ); $k++)  { #For all entries indepent if true or not
 			
 			if ($allVariants{$chr}{$pos}{$variant}[$k]){
 			    print ANVAR $allVariants{$chr}{$pos}{$variant}[$k], "\t";
