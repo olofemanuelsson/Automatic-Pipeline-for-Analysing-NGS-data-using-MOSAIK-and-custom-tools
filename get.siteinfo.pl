@@ -1,6 +1,7 @@
-
+#Adds depth-info for non-var sites of every sample and writes new varcall "master" file with added non-var depth info.
+#
 #NB: prefix of bamfile needs to exactly match samplename and have _lanes directly appended to the samplename prefix.
-
+#
 #USAGE: perl get.siteinfo.pl -var /proj/b2011075/melanoma_exomseq/mosaik_pipe/outdata/run2/annovar_filter/annovar_master_all_subject_variants.txt -bam /proj/b2011075/melanoma_exomseq/mosaik_pipe/outdata/217_1/samtools/217_1_lanes_45_S_merged_sorted.bam -ods /proj/b2011075/melanoma_exomseq/mosaik_pipe/outscripts/run2/annovar_filter -a b2010035 -em daniel.edsgard@scilifelab.se
 
 use strict;
@@ -53,11 +54,9 @@ my $cmd = 'Rscript get.sites.R ' . $varfile . ' ' . $outdir;
 print ADDNONVAR $cmd . "\n";
 
 
-#mpileup call for every sample: mpileup -l jsample.sitefile.
+#Call mpileup for every sample: mpileup -l jsample.sitefile.
 #samtools mpileup -l $sitesfile $infile >file.tmp.
-
-#my @nonvarsites_files = <$outdir/*.nonvarsites.txt>;
-  
+#my @nonvarsites_files = <$outdir/*.nonvarsites.txt>;  
 foreach my $jsample_bamfile (@sample_bamfiles) {
 
   #get sample id
@@ -70,5 +69,11 @@ foreach my $jsample_bamfile (@sample_bamfiles) {
   my $cmd = 'samtools mpileup -l ' . $jsample_sitesfile . ' ' . $jsample_bamfile . ' >' . $jsample_nonvars_depth_file;
   print ADDNONVAR $cmd . "\n";
 }
+
+
+#Add depth to varcall file for samples with no called variant.
+my $varfile_addeddepth = $varfile . '.addeddepth';
+my $cmd = 'Rscript depthadd2varcallfile.R ' . $varfile . ' ' . $varfile_addeddepth;
+print ADDNONVAR $cmd . "\n";
 
 close(ADDNONVAR);
